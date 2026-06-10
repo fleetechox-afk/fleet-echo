@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/fleetechox-afk/fleet-echo/schema/event-schema.json",
+  "title": "Embedded Reliability Event (core layer)",
+  "description": "One row per event. Layer 1 (core, device-agnostic) is defined here and should be reused verbatim. Layer 2 (device-specific fields like command_id/slot_id/zone_id) is allowed via additionalProperties and is your own to define.",
+  "type": "object",
+  "properties": {
+    "timestamp": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Single-unit: boot-relative millis. Fleet: MUST be alignable absolute time (epoch ms / RTC / NTP). Relative time makes cross-fleet comparison meaningless."
+    },
+    "machine_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique unit id, fixed format, from unit #1 (e.g. EDEN001)."
+    },
+    "firmware_version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Compile-time build version, carried on every row."
+    },
+    "event_type": {
+      "type": "string",
+      "minLength": 1,
+      "description": "What happened. Must come from your EventType registry — no bare strings."
+    },
+    "duration_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Measured duration, never a computed value."
+    },
+    "result": {
+      "type": "string",
+      "enum": ["OK", "FAIL"],
+      "description": "Kept orthogonal to event_type and error_code."
+    },
+    "error_code": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Failure reason from your ErrorCode registry; NONE on success."
+    }
+  },
+  "required": [
+    "timestamp",
+    "machine_id",
+    "firmware_version",
+    "event_type",
+    "duration_ms",
+    "result",
+    "error_code"
+  ],
+  "additionalProperties": true,
+  "allOf": [
+    {
+      "if": { "properties": { "result": { "const": "OK" } } },
+      "then": { "properties": { "error_code": { "const": "NONE" } } }
+    },
+    {
+      "if": { "properties": { "result": { "const": "FAIL" } } },
+      "then": { "properties": { "error_code": { "not": { "const": "NONE" } } } }
+    }
+  ]
+}

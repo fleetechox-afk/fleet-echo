@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Fleet Echo · paste your log, see what's failing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --bg:#0a0e13; --panel:#111923; --line:#1d2935; --line2:#27384a;
+    --ink:#c7d4e1; --dim:#7e90a3; --faint:#54677a;
+    --green:#34d77f; --amber:#fbbf24; --cyan:#22d3ee; --red:#f87171;
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+    --disp:'Archivo',sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);font-family:var(--mono);line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+    background-size:40px 40px;opacity:.18;mask-image:radial-gradient(ellipse 90% 55% at 50% 0%,#000 30%,transparent 75%)}
+  .wrap{position:relative;z-index:1;max-width:980px;margin:0 auto;padding:0 22px 90px}
+  header{padding:54px 0 34px}
+  .eyebrow{font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:var(--green);display:inline-flex;align-items:center;gap:10px}
+  .eyebrow::before{content:"";width:24px;height:1px;background:var(--green)}
+  h1{font-family:var(--disp);font-weight:900;font-size:clamp(28px,5vw,46px);line-height:1.02;letter-spacing:-.02em;color:#eef5fb;margin:16px 0 12px}
+  .sub{color:var(--dim);max-width:660px;font-size:14.5px}
+  .sub b{color:var(--ink)}
+  .privacy{margin-top:14px;font-size:12px;color:var(--faint);display:flex;align-items:center;gap:8px}
+  .privacy .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green)}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px;margin-bottom:18px}
+  .panel h2{font-family:var(--disp);font-size:15px;letter-spacing:.02em;color:#dce6f0;margin-bottom:14px;text-transform:uppercase}
+  textarea{width:100%;min-height:150px;background:#0b1119;border:1px solid var(--line2);border-radius:7px;color:var(--ink);font-family:var(--mono);font-size:12.5px;padding:13px;resize:vertical;line-height:1.5}
+  textarea:focus{outline:none;border-color:var(--green)}
+  .row{display:flex;gap:11px;flex-wrap:wrap;margin-top:13px;align-items:center}
+  button{font-family:var(--mono);font-weight:600;font-size:13px;letter-spacing:.03em;border:none;border-radius:7px;padding:11px 22px;cursor:pointer;transition:.15s}
+  .btn-go{background:var(--green);color:#06210f}
+  .btn-go:hover{filter:brightness(1.1)}
+  .btn-ghost{background:transparent;color:var(--dim);border:1px solid var(--line2)}
+  .btn-ghost:hover{color:var(--ink);border-color:var(--green)}
+  .hint{font-size:12px;color:var(--faint)}
+  .err{color:var(--red);font-size:12.5px;margin-top:10px}
+
+  #out{display:none}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:13px;margin-bottom:18px}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--green);border-radius:8px;padding:15px 17px}
+  .kpi .v{font-family:var(--disp);font-weight:800;font-size:28px;color:#eef5fb;line-height:1}
+  .kpi .l{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--dim);margin-top:7px}
+  .kpi.bad{border-left-color:var(--red)} .kpi.warn{border-left-color:var(--amber)} .kpi.ok{border-left-color:var(--green)}
+
+  .bars{display:flex;flex-direction:column;gap:9px}
+  .bar-row{display:grid;grid-template-columns:130px 1fr 64px;gap:12px;align-items:center;font-size:12.5px}
+  .bar-row .name{color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bar-track{background:#0b1119;border-radius:4px;height:22px;overflow:hidden;border:1px solid var(--line)}
+  .bar-fill{height:100%;border-radius:3px 0 0 3px;transition:width .6s cubic-bezier(.2,.7,.2,1)}
+  .bar-row .pct{text-align:right;color:var(--dim);font-variant-numeric:tabular-nums}
+  .note{font-size:12.5px;color:var(--dim);margin-top:13px;padding-top:13px;border-top:1px solid var(--line)}
+  .note b{color:var(--amber)}
+  .verdict{font-family:var(--disp);font-size:16px;color:#eef5fb;margin-bottom:6px}
+  footer{margin-top:30px;padding-top:22px;border-top:1px solid var(--line);font-size:11.5px;color:var(--faint);line-height:1.7}
+  footer a{color:var(--green);text-decoration:none}
+  .flag-mono{font-size:11px;color:var(--cyan)}
+  .twin-grid{display:grid;grid-template-columns:1fr 300px;gap:18px;align-items:start}
+  @media(max-width:780px){.twin-grid{grid-template-columns:1fr}}
+  .fleet{display:grid;grid-template-columns:repeat(12,1fr);gap:3px}
+  .cell{aspect-ratio:1;border-radius:2px;opacity:.88}
+  .verdict-box{margin-top:16px;padding:13px 15px;border-radius:8px;font-size:13px;line-height:1.55}
+  .verdict-box.bi{background:rgba(248,113,113,.08);border:1px solid #f8717145;color:#fca5a5}
+  .verdict-box.uni{background:rgba(52,215,127,.07);border:1px solid #34d77f40;color:#86efac}
+  .verdict-box b{color:#fff}
+  .bartip{font-size:10px;fill:var(--faint)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Fleet Echo · Reliability Quickscan</span>
+    <h1>Paste your device log.<br>See what's actually failing.</h1>
+    <p class="sub">Already have messy logs from your devices? Drop a CSV in below and get an instant read on <b>which units fail most, which error dominates, and your overall success rate</b> — before you change a single line of firmware.</p>
+    <div class="privacy"><span class="dot"></span> Runs entirely in your browser. Your data never leaves this page — nothing is uploaded.</div>
+  </header>
+
+  <div class="panel">
+    <h2>1 · Paste CSV</h2>
+    <textarea id="inp" placeholder="Paste CSV with a header row. Flexible about column names — it looks for things like machine_id / unit / device, result / status (OK/FAIL), error_code / error, event_type.
+
+Example:
+timestamp,machine_id,event_type,duration_ms,result,error_code
+0,EDEN001,BOOT,0,OK,NONE
+6680,EDEN001,WATER,2500,OK,NONE
+12100,EDEN002,WATER,2480,FAIL,LOW_WATER
+13050,EDEN002,WATER,2510,FAIL,LOW_WATER"></textarea>
+    <div class="row">
+      <button class="btn-go" onclick="run()">▶ Scan</button>
+      <button class="btn-ghost" onclick="loadSample()">Load sample data</button>
+      <span class="hint">No header? Add one. Don't have logs yet? Load the sample to see what it does.</span>
+    </div>
+    <div id="err" class="err"></div>
+  </div>
+
+  <div id="out">
+    <div class="kpis" id="kpis"></div>
+
+    <div class="panel">
+      <h2>2 · Failures by unit</h2>
+      <div class="verdict" id="unitVerdict"></div>
+      <div class="bars" id="unitBars"></div>
+      <div class="note" id="unitNote"></div>
+    </div>
+
+    <div class="panel">
+      <h2>3 · What's going wrong</h2>
+      <div class="bars" id="errBars"></div>
+      <div class="note" id="errNote"></div>
+    </div>
+
+    <div class="panel" id="twinPanel" style="display:none">
+      <h2>4 · Your fleet, as a twin</h2>
+      <p class="sub" style="margin-bottom:14px">Same data, seen as a fleet. Each cell is one unit's success rate. A <b style="color:#fca5a5">two-peaked (bimodal)</b> spread is the tell-tale sign of a systemic batch defect — something a single unit's log can never show you.</p>
+      <div class="twin-grid">
+        <div>
+          <svg id="twinHist" viewBox="0 0 520 220" width="100%" style="display:block"></svg>
+        </div>
+        <div>
+          <div class="fleet" id="twinFleet"></div>
+          <div class="hint" style="font-size:11px;color:var(--faint);margin-top:8px">&#9608; &ge;85% &middot; &#9608; 60-85% &middot; &#9608; &lt;60% &middot; one cell = one unit</div>
+        </div>
+      </div>
+      <div class="verdict-box" id="twinVerdict"></div>
+      <div class="note" style="border-top:1px solid var(--line);margin-top:16px;padding-top:14px">
+        This is the same decision the full <b style="color:var(--ink)">fleet twin</b> makes — but here it's computed live in your browser, from <b style="color:var(--ink)">your own log</b>. The full version models per-unit physics over time so you can predict failures before they happen, not just count them after.
+        <div style="margin-top:10px"><b style="color:var(--green)">&rarr; This is the moment to connect a device.</b> See the repo to go from "reading old logs" to "live fleet telemetry."</div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    This is a free quick-look tool — it reads logs you already have. It does <b>not</b> validate hardware or prove yield; it just surfaces patterns so you know where to look.<br>
+    Part of the open event-level data methodology. Want the full picture — a real fleet digital twin, firmware template, the whole approach? See the repo / open an issue.<br>
+    <span style="color:var(--dim)">Tip: the cleaner and more consistent your event log, the sharper this gets — which is exactly what the methodology is about.</span>
+  </footer>
+</div>
+
+<script>
+const SAMPLE = `timestamp,machine_id,firmware_version,command_id,slot_id,event_type,duration_ms,result,error_code
+0,EDEN001,v0.1.0,0,0,BOOT,0,OK,NONE
+1240,EDEN001,v0.1.0,0,0,HOME,1240,OK,NONE
+6680,EDEN001,v0.1.0,0,1,WATER,2500,OK,NONE
+9200,EDEN001,v0.1.0,0,2,WATER,2480,OK,NONE
+0,EDEN002,v0.1.0,0,0,BOOT,0,OK,NONE
+1300,EDEN002,v0.1.0,0,0,HOME,1300,OK,NONE
+6700,EDEN002,v0.1.0,0,1,WATER,2490,FAIL,LOW_WATER
+9100,EDEN002,v0.1.0,0,2,WATER,2510,FAIL,LOW_WATER
+11500,EDEN002,v0.1.0,0,3,WATER,2495,FAIL,LOW_WATER
+0,EDEN003,v0.1.0,0,0,BOOT,0,OK,NONE
+1280,EDEN003,v0.1.0,0,0,HOME,1280,FAIL,HOME_FAIL
+6690,EDEN003,v0.1.0,0,1,WATER,2470,OK,NONE
+0,EDEN004,v0.1.0,0,0,BOOT,0,OK,NONE
+1260,EDEN004,v0.1.0,0,0,HOME,1260,OK,NONE
+6680,EDEN004,v0.1.0,0,1,WATER,2500,OK,NONE
+9200,EDEN004,v0.1.0,0,2,WATER,2480,OK,NONE
+11600,EDEN004,v0.1.0,0,3,WATER,2490,OK,NONE`;
+
+function loadSample(){ document.getElementById('inp').value = SAMPLE; run(); }
+
+// 内建 CSV 解析(支持引号、逗号转义),取代外部 PapaParse
+function parseCSV(text){
+  const rows=[]; let i=0, field='', row=[], inQ=false;
+  text=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  while(i<text.length){
+    const c=text[i];
+    if(inQ){
+      if(c==='"'){ if(text[i+1]==='"'){field+='"';i+=2;continue;} inQ=false;i++;continue; }
+      field+=c;i++;continue;
+    }
+    if(c==='"'){inQ=true;i++;continue;}
+    if(c===','){row.push(field);field='';i++;continue;}
+    if(c==='\n'){row.push(field);rows.push(row);row=[];field='';i++;continue;}
+    field+=c;i++;
+  }
+  if(field.length||row.length){row.push(field);rows.push(row);}
+  // 去掉全空行
+  const clean=rows.filter(r=>r.some(x=>x.trim()!==''));
+  if(!clean.length) return {data:[],meta:{fields:[]}};
+  const headers=clean[0].map(h=>h.trim());
+  const data=clean.slice(1).map(r=>{const o={};headers.forEach((h,idx)=>o[h]=(r[idx]!==undefined?r[idx].trim():''));return o;});
+  return {data:data, meta:{fields:headers}};
+}
+
+// flexible column finder
+function pick(headers, candidates){
+  const low = headers.map(h=>h.toLowerCase().trim());
+  for(const c of candidates){
+    const i = low.indexOf(c);
+    if(i>=0) return headers[i];
+  }
+  // partial
+  for(const c of candidates){
+    const i = low.findIndex(h=>h.includes(c));
+    if(i>=0) return headers[i];
+  }
+  return null;
+}
+
+function run(){
+  const raw = document.getElementById('inp').value.trim();
+  const errEl = document.getElementById('err'); errEl.textContent='';
+  if(!raw){ errEl.textContent='Paste some CSV first, or load the sample.'; return; }
+
+  const parsed = parseCSV(raw);
+  if(!parsed.data || !parsed.data.length){ errEl.textContent='Could not read any rows. Make sure there is a header row.'; return; }
+  const headers = parsed.meta.fields || [];
+
+  const cUnit = pick(headers,['machine_id','unit','device','device_id','board','serial']);
+  const cResult = pick(headers,['result','status','outcome']);
+  const cErr = pick(headers,['error_code','error','err','fault','reason']);
+  const cEvent = pick(headers,['event_type','event','action','op']);
+
+  if(!cResult && !cErr){
+    errEl.innerHTML='Need at least a result/status column (OK/FAIL) or an error_code column to find failures. Found columns: '+headers.join(', ');
+    return;
+  }
+
+  const rows = parsed.data;
+  const total = rows.length;
+
+  const isFail = (r)=>{
+    if(cResult){ const v=(r[cResult]||'').toString().toUpperCase(); if(['FAIL','FAILED','ERROR','ERR','KO','BAD','0','FALSE'].includes(v)) return true; if(['OK','PASS','SUCCESS','GOOD','1','TRUE'].includes(v)) return false; }
+    if(cErr){ const e=(r[cErr]||'').toString().toUpperCase().trim(); if(e && !['NONE','','OK','N/A','NA','-','0'].includes(e)) return true; }
+    return false;
+  };
+
+  let fails=0; const byUnit={}; const byErr={};
+  rows.forEach(r=>{
+    const f=isFail(r);
+    if(f) fails++;
+    if(cUnit){ const u=r[cUnit]||'(blank)'; byUnit[u]=byUnit[u]||{n:0,f:0}; byUnit[u].n++; if(f)byUnit[u].f++; }
+    if(f && cErr){ const e=(r[cErr]||'').toString().toUpperCase().trim()||'(unspecified)'; if(!['NONE','OK'].includes(e)) byErr[e]=(byErr[e]||0)+1; }
+    else if(f && !cErr){ byErr['(no error_code column)']=(byErr['(no error_code column)']||0)+1; }
+  });
+
+  const successRate = total? ((total-fails)/total*100):0;
+
+  // KPIs
+  const kc = successRate>=99?'ok':successRate>=90?'warn':'bad';
+  document.getElementById('kpis').innerHTML = `
+    <div class="kpi ${kc}"><div class="v">${successRate.toFixed(1)}%</div><div class="l">Success rate</div></div>
+    <div class="kpi"><div class="v">${total}</div><div class="l">Events scanned</div></div>
+    <div class="kpi ${fails?'bad':'ok'}"><div class="v">${fails}</div><div class="l">Failures</div></div>
+    <div class="kpi"><div class="v">${cUnit?Object.keys(byUnit).length:'—'}</div><div class="l">Units seen</div></div>`;
+
+  // units
+  const uv=document.getElementById('unitVerdict'), ub=document.getElementById('unitBars'), un=document.getElementById('unitNote');
+  if(cUnit){
+    const arr=Object.entries(byUnit).map(([u,o])=>({u,rate:o.f/o.n*100,f:o.f,n:o.n})).sort((a,b)=>b.rate-a.rate);
+    const max=Math.max(...arr.map(a=>a.rate),1);
+    ub.innerHTML=arr.map(a=>{
+      const col=a.rate>=20?'var(--red)':a.rate>=5?'var(--amber)':'var(--green)';
+      return `<div class="bar-row"><span class="name">${a.u}</span><div class="bar-track"><div class="bar-fill" style="width:${a.rate/max*100}%;background:${col}"></div></div><span class="pct">${a.rate.toFixed(0)}% · ${a.f}/${a.n}</span></div>`;
+    }).join('');
+    const worst=arr[0];
+    if(worst && worst.rate>0){
+      const healthy=arr.filter(a=>a.rate===0).length;
+      uv.textContent = `${worst.u} is your worst unit — ${worst.rate.toFixed(0)}% of its events failed.`;
+      un.innerHTML = `<b>${healthy}</b> of ${arr.length} units had zero failures. When one or two units fail far more than the rest, that's usually a <b>unit-specific defect</b> (assembly, a bad component) — not a systemic design problem. When failures are spread evenly across all units, suspect the design or firmware instead.`;
+    } else { uv.textContent='No failures across any unit in this log.'; un.textContent=''; }
+  } else {
+    uv.textContent='No unit/machine_id column found.'; ub.innerHTML='';
+    un.innerHTML='Add a <b>machine_id</b> column to see per-unit failure rates — that\'s how you tell a single bad unit apart from a fleet-wide problem. This is core principle #4 of the methodology.';
+  }
+
+  // errors
+  const eb=document.getElementById('errBars'), en=document.getElementById('errNote');
+  const ea=Object.entries(byErr).sort((a,b)=>b[1]-a[1]);
+  if(ea.length){
+    const emax=Math.max(...ea.map(e=>e[1]),1);
+    eb.innerHTML=ea.map(([e,n])=>`<div class="bar-row"><span class="name">${e}</span><div class="bar-track"><div class="bar-fill" style="width:${n/emax*100}%;background:var(--amber)"></div></div><span class="pct">${n}</span></div>`).join('');
+    const dom=ea[0];
+    en.innerHTML = cErr ? `<b>${dom[0]}</b> is your most common failure (${dom[1]} times). Fix the dominant error first — it's usually where the biggest reliability gain hides.` : `No <b>error_code</b> column found, so failures can't be categorized. Add one (separate from result) to learn <i>why</i> things fail, not just that they did — principle #3 & #5 of the methodology.`;
+  } else { eb.innerHTML=''; en.textContent='No failures to categorize.'; }
+
+  // ── 4 · Fleet twin view: same real data, seen as a fleet ──
+  const tp=document.getElementById('twinPanel');
+  if(cUnit){
+    const units=Object.entries(byUnit).map(([u,o])=>({u,rate:(o.n-o.f)/o.n*100,n:o.n}));
+    if(units.length>=3){
+      // success-rate histogram, 10-wide bins 0..100
+      const bins=[]; for(let b=0;b<10;b++) bins.push({lo:b*10,count:0});
+      units.forEach(x=>{ let idx=Math.floor(x.rate/10); if(idx>9)idx=9; bins[idx].count++; });
+      const maxC=Math.max(...bins.map(b=>b.count),1);
+      const W=520,H=220,padL=30,padB=40,padT=12,bw=(W-padL-10)/bins.length;
+      let svg='';
+      bins.forEach((b,i)=>{
+        const bh=(b.count/maxC)*(H-padB-padT);
+        const x=padL+i*bw, y=H-padB-bh;
+        const col=b.lo<60?'#f87171':b.lo<85?'#fbbf24':'#34d77f';
+        svg+=`<rect x="${x+3}" y="${y}" width="${bw-6}" height="${bh}" rx="3" fill="${col}"/>`;
+        svg+=`<text x="${x+bw/2}" y="${H-padB+14}" text-anchor="middle" class="bartip">${b.lo}</text>`;
+        if(b.count>0) svg+=`<text x="${x+bw/2}" y="${y-4}" text-anchor="middle" class="bartip">${b.count}</text>`;
+      });
+      svg+=`<text x="${padL}" y="${H-padB+30}" class="bartip">success % &rarr;</text>`;
+      document.getElementById('twinHist').innerHTML=svg;
+
+      // fleet cells, sorted worst-first so a bad batch clusters visibly
+      const sorted=[...units].sort((a,b)=>a.rate-b.rate);
+      document.getElementById('twinFleet').innerHTML=sorted.map(x=>{
+        const c=x.rate<60?'#f87171':x.rate<85?'#fbbf24':'#34d77f';
+        return `<div class="cell" title="${x.u}: ${x.rate.toFixed(0)}%" style="background:${c}"></div>`;
+      }).join('');
+
+      // bimodal detection on real data
+      const low=units.filter(x=>x.rate<60).length;
+      const high=units.filter(x=>x.rate>=85).length;
+      const avg=units.reduce((s,x)=>s+x.rate,0)/units.length;
+      const bimodal=(units.length>=5)&&(low>=2)&&(low>=units.length*0.1)&&(high>=units.length*0.35);
+      const vb=document.getElementById('twinVerdict');
+      if(bimodal){
+        vb.className='verdict-box bi';
+        vb.innerHTML=`<b>Bimodal — possible systemic defect.</b> Your units split into a healthy group and a failing group (${high} good, ${low} bad). That split usually means something is different about one batch — a component, a calibration step, EMI. Trace what the bad units have in common before shipping.`;
+      } else if(avg<80){
+        vb.className='verdict-box uni';
+        vb.innerHTML=`<b>Single peak, but sitting low (avg ${avg.toFixed(0)}%).</b> No clean batch split — when the whole fleet underperforms together, suspect the design or firmware itself rather than one bad batch.`;
+      } else {
+        vb.className='verdict-box uni';
+        vb.innerHTML=`<b>Single peak, healthy (avg ${avg.toFixed(0)}%).</b> Units cluster together at a high rate — no batch-level defect signature in this log.`;
+      }
+      tp.style.display='block';
+    } else { tp.style.display='none'; }
+  } else { tp.style.display='none'; }
+
+  document.getElementById('out').style.display='block';
+  document.getElementById('out').scrollIntoView({behavior:'smooth',block:'start'});
+}
+</script>
+</body>
+</html>
