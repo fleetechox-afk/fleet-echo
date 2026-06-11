@@ -2,6 +2,9 @@
 
 > A transferable engineering methodology for building **production-grade, drift-free data discipline** into embedded devices — so a fleet of devices can report its own health and yield.
 
+
+**Try it live:** https://fleetecho.carrd.co/
+
 **This repo is the free, open-source layer: the methodology + the event schema.** MIT licensed. Use it, adapt it, build it into your own product.
 
 > ### ⚡ Try it now — no signup, no firmware changes
